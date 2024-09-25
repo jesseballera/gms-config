@@ -1,0 +1,64 @@
+server:
+  port: 8060
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8061/eureka/
+
+logging:
+  pattern:
+    console: "%clr(%d{yyyy-MM-dd HH:mm:ss}){blue} %clr([%X{traceId:-},%X{spanId:-}]){cyan} %clr(${LOG_LEVEL_PATTERN:-%5p}) %m%n"
+
+
+spring:
+  output:
+    ansi:
+      enabled: always
+  main:
+    web-application-type: reactive
+  cloud:
+    gateway:
+      httpclient:
+        connect-timeout: 20000
+        response-timeout: 7s
+      discovery:
+        locator:
+          enabled: true
+      routes:
+        - id: gms_api_iam_route
+          uri: lb://iam-service
+          predicates:
+            - Path=/iam/**
+          filters:
+            - RewritePath=/iam/(?<path>.*), /$\{path}
+            - StripPrefix=1
+        - id: gms_api_health_route
+          uri: lb://health-service
+          predicates:
+            - Path=/health/**
+          filters:
+            - RewritePath=/health/(?<path>.*), /$\{path}
+            - StripPrefix=1
+        - id: openapi
+          uri: http://localhost:${server.port}
+          predicates:
+            - Path=/v3/api-docs/**
+          filters:
+            - RewritePath=/v3/api-docs/(?<path>.*), /$\{path}/v3/api-docs
+
+springdoc:
+  swagger-ui:
+    urls:
+      - name: iam
+        url: /v3/api-docs/iam
+      - name: health
+        url: /v3/api-docs/health
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: http://zipkin:9411/api/v2/spans
